@@ -573,7 +573,7 @@ impl Object {
 
     #[inline(always)]
     fn sign(&self, file_path: &str, duration: u32, http_verb: &str) -> Result<String, Error> {
-        use openssl::sha;
+        use sha2::{Sha256, Digest};
 
         if duration > 604800 {
             let msg = format!("duration may not be greater than 604800, but was {}", duration);
@@ -587,7 +587,9 @@ impl Object {
         let canonical_request = self.get_canonical_request(&file_path, &query_string, http_verb);
 
         // 2 get hex encoded SHA256 hash the canonical request
-        let hash = sha::sha256(canonical_request.as_bytes());
+        let mut hasher = Sha256::default();
+        hasher.update(canonical_request.as_bytes());
+        let hash = hasher.finalize();
         let hex_hash = hex::encode(hash);
 
         // 3 construct the string to sign
@@ -673,12 +675,12 @@ impl Object {
 
     #[inline(always)]
     fn sign_str(message: &str) -> Result<Vec<u8>, Error> {
-        use openssl::{hash::MessageDigest, pkey::PKey, sign::Signer};
+        use rsa::{RSAPrivateKey, PaddingScheme, Hash, pem};
+        use std::convert::TryInto;
 
-        let key = PKey::private_key_from_pem(crate::SERVICE_ACCOUNT.private_key.as_bytes())?;
-        let mut signer = Signer::new(MessageDigest::sha256(), &key)?;
-        signer.update(message.as_bytes())?;
-        Ok(signer.sign_to_vec()?)
+        let key: RSAPrivateKey = pem::parse(&crate::SERVICE_ACCOUNT.private_key)?.try_into()?;
+        let res = key.sign(PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256)), message.as_bytes())?;
+        Ok(res)
     }
 }
 

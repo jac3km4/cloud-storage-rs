@@ -6,8 +6,10 @@ pub enum Error {
     Google(GoogleErrorResponse),
     /// If another network error causes something to fail, this variant is used.
     Reqwest(reqwest::Error),
-    /// If we encouter a SSL error, for example an invalid certificate, this variant is used.
-    Ssl(openssl::error::ErrorStack),
+    /// If we encouter an RSA error, for example an invalid certificate, this variant is used.
+    Rsa(rsa::errors::Error),
+    /// If we encouter a PEM error.
+    Pem(rsa::pem::PemError),
     /// If we have problems creating or parsing a json web token, this variant is used.
     Jwt(jsonwebtoken::errors::Error),
     /// If we cannot deserialize one of the repsonses sent by Google, this variant is used.
@@ -33,7 +35,8 @@ impl std::error::Error for Error {
         match self {
             Self::Google(e) => Some(e),
             Self::Reqwest(e) => Some(e),
-            Self::Ssl(e) => Some(e),
+            Self::Rsa(e) => Some(e),
+            Self::Pem(e) => Some(e),
             Self::Jwt(e) => Some(e),
             Self::Serialization(e) => Some(e),
             Self::Other(_) => None,
@@ -47,11 +50,18 @@ impl From<reqwest::Error> for Error {
     }
 }
 
-impl From<openssl::error::ErrorStack> for Error {
-    fn from(err: openssl::error::ErrorStack) -> Self {
-        Self::Ssl(err)
+impl From<rsa::errors::Error> for Error {
+    fn from(err: rsa::errors::Error) -> Self {
+        Self::Rsa(err)
     }
 }
+
+impl From<rsa::pem::PemError> for Error {
+    fn from(err: rsa::pem::PemError) -> Self {
+        Self::Pem(err)
+    }
+}
+
 
 impl From<jsonwebtoken::errors::Error> for Error {
     fn from(err: jsonwebtoken::errors::Error) -> Self {
